@@ -28,7 +28,12 @@ def extract_data(
             device = 'cuda'):
 
     tmp_dir = tempfile.gettempdir()
+    print('\n\n')
+    print(tmp_dir)
     supr.DUMP_TMP_FOLDER = os.path.join(tmp_dir, 'pow3r_demo', img1, img2)
+    print('\n\n')
+    print(supr.DUMP_TMP_FOLDER)
+    print('\n\n')
     os.makedirs(supr.DUMP_TMP_FOLDER, exist_ok=True)
     print('saving temporary stuff in', supr.DUMP_TMP_FOLDER)
     if osp.isfile(osp.join(supr.DUMP_TMP_FOLDER,'done')):
