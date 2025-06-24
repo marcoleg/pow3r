@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 import torch
 import open3d as o3d
+import json
 
 import pow3r.tools.path_to_dust3r  # noqa: F401
 from dust3r.utils.image import load_images
@@ -9,21 +10,31 @@ from dust3r.utils.device import todevice, to_numpy
 from pow3r.model import inference as supr
 
 
-def load_matrix(path, shape):
+def load_matrix(path):
     """Load a matrix from a text or numpy file."""
-    if path.endswith('.npy'):
-        data = np.load(path)
-    else:
-        data = np.loadtxt(path)
-    data = np.asarray(data, dtype=np.float32)
-    return data.reshape(*shape)
-
+    K = None
+    with open(path) as f:
+        loaded = json.load(f)
+        if K is None:
+            # w = loaded['w']
+            # h = loaded['h']
+            fx = loaded['fl_x']
+            fy = loaded['fl_y']
+            cx = loaded['cx']
+            cy = loaded['cy']
+            K = np.array([
+                [fx, 0, cx],
+                [0, fy, cy],
+                [0, 0, 1]
+            ])
+        poses = {}
+        for k in range(len(loaded['frames'])):
+            poses[loaded['frames'][k]['file_path'].split('/')[1]] = loaded['frames'][k]['transform_matrix']
+    return K, poses[loaded['frames'][0]['file_path'].split('/')[1]], poses[loaded['frames'][1]['file_path'].split('/')[1]]
 
 def main(args):
     # load intrinsics and extrinsics
-    K = load_matrix(args.intrinsics, (3, 3))
-    T1 = load_matrix(args.pose1, (4, 4))
-    T2 = load_matrix(args.pose2, (4, 4))
+    K, T1, T2 = load_matrix(args.trans)
 
     # load images
     imgs = load_images([args.img1, args.img2], size=args.resolution)
@@ -69,11 +80,9 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate a point cloud from two images and poses")
-    parser.add_argument('--img1', required=True, help='first image path')
-    parser.add_argument('--img2', required=True, help='second image path')
-    parser.add_argument('--pose1', required=True, help='4x4 pose matrix for img1')
-    parser.add_argument('--pose2', required=True, help='4x4 pose matrix for img2')
-    parser.add_argument('--intrinsics', required=True, help='3x3 camera intrinsics matrix')
+    parser.add_argument('--img1', required=False, help='first image path', default='assets/frame_00001.png')
+    parser.add_argument('--img2', required=False, help='second image path', default='assets/frame_00002.png')
+    parser.add_argument('--trans', required=False, help='transform.json', default='assets/transforms.json')
     parser.add_argument('--ckpt', default='checkpoints/Pow3R_ViTLarge_BaseDecoder_512_linear.pth')
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--resolution', type=int, default=1280, help='resize images to this size before processing')
